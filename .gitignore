@@ -27,3 +27,4 @@ desktop.ini
 # mpv runtime artifacts (keep configs/scripts tracked)
 mpv/watch_later/
 
+checklist.md
