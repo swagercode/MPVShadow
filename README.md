@@ -1,74 +1,85 @@
-## mpv-shadow-coach
+## MPVShadow (work in progress)
 
-Shadow subtitle lines in mpv: press Ctrl+R to jump to the current subtitle's start, record your mic while the line plays, run an analyzer, then review everything in a live dark-mode analysis window. Re-press Ctrl+R to redo the same line—the window simply updates.
+Minimal, fast subtitle-audio cutter + live UI for mpv on Windows.
 
-### Features
-- Single hotkey loop: seek → play → record → analyze → resume
-- Webview (Rust + Chart.js) window with dual waveform+pitch charts for mic and source
-- Space bar plays both tracks in sync; per-track play/stop buttons
-- JSON log per take (`shadow_out/shadow_log.csv`) with match %, timing, speed, and pitch metrics
-- Optional Whisper-tiny alignment for more detailed timings
+- Press C while a subtitle is visible.
+- The analyzer grabs the selected audio track from the playing file via mpv IPC, cuts a small window around the subtitle, writes a WAV to `shadow_out/`, and pipes a short PCM burst to compute quick metrics (RMS/peak). It also shows an OSD confirmation in mpv.
+- A persistent webview window displays the latest line, window, track info, latency, RMS/peak, and a Play/Pause button for the WAV.
+
+Status: actively evolving; interfaces and behavior may change.
+
+### Current features
+- mpv JSON IPC integration (named pipe `\\.\\pipe\\MPVShadow`)
+- C key Lua trigger (`script-message cut_current_sub`)
+- External ffmpeg for both:
+  - WAV writer (background, non-blocking)
+  - Raw PCM analysis pipe (`-f f32le`) for low-latency metrics
+- Deterministic output naming under `shadow_out/`: `<basename>_<startms>_<endms>.wav`
+- Persistent webview (wry/tao + WebView2) with simple UI and audio playback
 
 ### Repo layout
 ```
-mpv-shadow-coach/
+MPVShadow/
 ├─ mpv/
 │  └─ scripts/
-│     └─ shadow.lua          # hotkeys + orchestration
-├─ python/
-│  └─ shadow_analyze.py      # librosa + faster-whisper metrics pipeline
+│     └─ analyzer_launcher.lua    # C key emits script-message to mpv IPC
 ├─ rust/
-│  └─ shadow_viz/            # long-lived webview window (wry)
-├─ shadow_out/               # generated wav slices, viz_state.json, CSV log (auto-created)
-├─ requirements.txt
+│  └─ shadow_analyzer/            # persistent analyzer + UI (Rust + wry)
+│     ├─ assets/                  # index.html, style.css, script.js
+│     └─ src/main.rs              # mpv IPC + ffmpeg + UI bridge
+├─ shadow_out/                    # generated wav clips (auto-created)
 └─ README.md
 ```
 
-### Prereqs
-- Python 3.9+
-- Rust toolchain (`cargo`) for the visualizer
-- ffmpeg available in your PATH
+### Prerequisites
+- Windows 10/11
+- ffmpeg on PATH
 - mpv
+- Rust toolchain (`cargo`)
+- Microsoft Edge WebView2 runtime (wry will use it on Windows)
 
 ### Setup
-1. Install Python dependencies (venv recommended)
-   ```bash
-   pip install -r requirements.txt
-   ```
-2. Build the Rust visualizer once
-   ```bash
-   cd rust/shadow_viz
-   cargo build --release
-   ```
-   The Lua script expects the binary at `rust/shadow_viz/target/release/shadow_viz.exe`. Adjust `options.viz_exe` in `shadow.lua` if you move it.
-3. Configure your mic device in `mpv/scripts/shadow.lua`:
-   - Windows (`dshow`): list devices with `ffmpeg -hide_banner -f dshow -list_devices true -i dummy`
-   - macOS (`avfoundation`): use indexes like `:0`, `:1`, …
-   - Linux (`pulse`): `default` or the specific `alsa_input.*` name
+1) Enable mpv IPC (named pipe)
+   - Add to your mpv config (e.g. `mpv/mpv.conf`):
+     - `input-ipc-server=\\.\\pipe\\MPVShadow`
+   - Or launch mpv with `--input-ipc-server=\\.\\pipe\\MPVShadow`.
+
+2) Lua keybinding
+   - Ensure `mpv/scripts/analyzer_launcher.lua` exists and binds C to:
+     - `script-message cut_current_sub` (only when a subtitle is visible).
+
+3) Build the analyzer
+```bash
+cd rust/shadow_analyzer
+cargo build --release
+```
 
 ### Run
+1) Start mpv (with IPC enabled) and play a video with subtitles.
+2) Run the analyzer binary:
 ```bash
-mpv --script=./mpv/scripts/shadow.lua yourfile.mkv
+rust/shadow_analyzer/target/release/shadow_analyzer.exe
 ```
-While a subtitle is visible, hit **Ctrl+R**:
-1. mpv seeks to the subtitle start and begins playback
-2. ffmpeg records your mic for the subtitle’s duration
-3. Playback pauses briefly while Python analyzes timing, speed, and pitch
-4. The Rust window updates in-place (wave + pitch charts, stats, and playback controls)
-5. CSV log is appended in `shadow_out/shadow_log.csv`
+3) Press C in mpv when a subtitle is visible.
+   - Expected: OSD confirmation in mpv, a WAV in `shadow_out/`, console line like `first-byte latency: 55 ms; rms=... peak=...`, and the UI updates with a Play/Pause toggle for that WAV.
 
-Press **Ctrl+R** again anytime to redo the current (or most recent) line—the window refreshes without spawning a new one. Press **Ctrl+A** to toggle auto mode (experimental) that walks subtitles automatically.
+### Configuration (defaults are sane for now)
+- Padding: 100 ms before/after the subtitle window
+- Output: `shadow_out/` under current working directory
+- Sample format: analysis stream `f32le`, WAV `pcm_s16le`, `48 kHz`, stereo
+- Track select: uses absolute `ff_index` from mpv’s selected audio track
 
-### Analysis window controls
-- Line text and metrics at the top (dark theme)
-- Mic chart (waveform + pitch overlay) and Source chart stacked vertically
-- `Play mic` / `Play source` / `Stop` buttons control individual tracks
-- `Space` or the **Play both** button resets both tracks to 0 and plays A/B in sync
+### Troubleshooting
+- No pipe? Ensure mpv is started with `input-ipc-server=\\.\\pipe\\MPVShadow`.
+- ffmpeg not found? Confirm `ffmpeg -version` works in a new terminal.
+- UI window doesn’t open? Install the Evergreen WebView2 runtime.
+- Access denied on rebuild (Windows): close the running `shadow_analyzer.exe` before `cargo build`.
 
-### Notes
-- Lua uses mpv properties `sub-start` / `sub-end`; no polling loop required
-- Whisper is optional (`options.whisper = true`) and downloads the tiny model on first run
-- The visualizer watches `shadow_out/viz_state.json`; delete the file or close the window if you need to reset—`shadow.lua` will respawn it automatically on the next Ctrl+R
-- WAV slices (`*-src.wav`, `*-mic.wav`) are kept in `shadow_out/` for quick review or archival
+### Roadmap
+- Config file for padding, output dir, and fallbacks
+- CSV log per cut (timestamp, path, window, subtitle text)
+- Pitch tracking (F0) and basic high/low binning
+- Optional switch back to in-process decode when dependencies stabilize
 
-
+### License
+MIT (see `LICENSE` if present). This is a work in progress—APIs may change.
