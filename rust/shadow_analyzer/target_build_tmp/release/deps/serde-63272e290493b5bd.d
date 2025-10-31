@@ -1,0 +1,14 @@
+C:\Users\Luke\Documents\MPVShadow\rust\shadow_analyzer\target_build_tmp\release\deps\serde-63272e290493b5bd.d: C:\Users\Luke\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\Luke\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\Luke\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\Luke\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\Luke\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs C:\Users\Luke\Documents\MPVShadow\rust\shadow_analyzer\target_build_tmp\release\build\serde-903a4c11ec945302\out/private.rs
+
+C:\Users\Luke\Documents\MPVShadow\rust\shadow_analyzer\target_build_tmp\release\deps\libserde-63272e290493b5bd.rlib: C:\Users\Luke\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\Luke\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\Luke\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\Luke\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\Luke\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs C:\Users\Luke\Documents\MPVShadow\rust\shadow_analyzer\target_build_tmp\release\build\serde-903a4c11ec945302\out/private.rs
+
+C:\Users\Luke\Documents\MPVShadow\rust\shadow_analyzer\target_build_tmp\release\deps\libserde-63272e290493b5bd.rmeta: C:\Users\Luke\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\Luke\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\Luke\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\Luke\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\Luke\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs C:\Users\Luke\Documents\MPVShadow\rust\shadow_analyzer\target_build_tmp\release\build\serde-903a4c11ec945302\out/private.rs
+
+C:\Users\Luke\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs:
+C:\Users\Luke\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs:
+C:\Users\Luke\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs:
+C:\Users\Luke\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs:
+C:\Users\Luke\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs:
+C:\Users\Luke\Documents\MPVShadow\rust\shadow_analyzer\target_build_tmp\release\build\serde-903a4c11ec945302\out/private.rs:
+
+# env-dep:OUT_DIR=C:\\Users\\Luke\\Documents\\MPVShadow\\rust\\shadow_analyzer\\target_build_tmp\\release\\build\\serde-903a4c11ec945302\\out

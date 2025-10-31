@@ -11,4 +11,15 @@ byteorder = "1"
 wry = { version = "0.40", default-features = true, features = ["devtools"] }
 tao = "0.26"
 url = "2"
+windows = { version = "0.54", features = [
+    "Win32_Foundation",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Variant",
+    "Win32_System_Threading",
+    "Win32_Media_Audio",
+    "Win32_Devices_Properties",
+    "Win32_UI_Shell_PropertiesSystem",
+    "Win32_Security",
+] }
 

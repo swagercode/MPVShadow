@@ -8,6 +8,12 @@
 </head>
 <body>
   <div class="wrap">
+    <div class="mic-selector">
+      <label for="mic-selector">Mic:</label>
+      <select id="mic-selector">
+        <option value="default">Menu not working rn</option>
+      </select>
+    </div>
     <div class="card">
       <div class="row"><div class="label">Text</div><div id="text" class="val"></div></div>
       <div class="row"><div class="label">Window</div><div id="window" class="val mono"></div></div>
@@ -19,6 +25,14 @@
       <div class="row" style="gap:12px; margin-top:8px;">
         <button id="play-button" onclick="togglePlay()">Play</button>
         <audio id="player" preload="none"></audio>
+      </div>
+      <div class="row" style="gap:12px; margin-top:8px;">
+        <button id="play-mic-button" onclick="togglePlayMic()">Play</button>
+        <audio id="player-mic" preload="none"></audio>
+      </div>
+      <div class="row" style="gap:12px; margin-top:8px;">
+        <button id="play-both-button" onclick="togglePlayBoth()">Play</button>
+        <audio id="player-both" preload="none"></audio>
       </div>
     </div>
     <div class="row" style="opacity:.6">Press C in mpv with a subtitle visible.</div>
