@@ -1,0 +1,7 @@
+html, body { height: 100%; margin: 0; font-family: system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:#0b0e14; color:#e6e1cf; }
+.wrap { padding: 12px 14px; display:flex; flex-direction:column; gap:10px; }
+.row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.label { opacity:.7; min-width:80px; }
+.val { font-weight:600; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.card { background:#11151f; border:1px solid #1b2230; border-radius:8px; padding:12px; }

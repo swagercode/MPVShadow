@@ -1,0 +1,10 @@
+numpy>=1.23
+scipy>=1.10
+soundfile>=0.12
+librosa>=0.10
+faster-whisper>=1.0
+ctranslate2>=4.4
+tokenizers>=0.14
+numba>=0.57
+json5>=0.9
+

@@ -1,0 +1,29 @@
+# Rust build artifacts
+**/target/
+
+# Generated audio/output
+**/shadow_out/
+
+# Logs and temp files
+*.log
+*.tmp
+*.bak
+
+# Editor/IDE settings
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*.swo
+
+# Cursor/AI tooling
+.cursor/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# mpv runtime artifacts (keep configs/scripts tracked)
+mpv/watch_later/
+

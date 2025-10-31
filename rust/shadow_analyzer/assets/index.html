@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MPV Shadow</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="row"><div class="label">Text</div><div id="text" class="val"></div></div>
+      <div class="row"><div class="label">Window</div><div id="window" class="val mono"></div></div>
+      <div class="row"><div class="label">FF Index</div><div id="ff" class="val mono"></div></div>
+      <div class="row"><div class="label">Latency</div><div id="lat" class="val mono"></div></div>
+      <div class="row"><div class="label">RMS</div><div id="rms" class="val mono"></div></div>
+      <div class="row"><div class="label">Peak</div><div id="peak" class="val mono"></div></div>
+      <div class="row"><div class="label">Output</div><div id="out" class="val mono"></div></div>
+      <div class="row" style="gap:12px; margin-top:8px;">
+        <button id="play-button" onclick="togglePlay()">Play</button>
+        <audio id="player" preload="none"></audio>
+      </div>
+    </div>
+    <div class="row" style="opacity:.6">Press C in mpv with a subtitle visible.</div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
