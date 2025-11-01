@@ -15,13 +15,16 @@
       </select>
     </div>
     <div class="card">
+      <div class="row"><div class="label">Pitch</div><div class="val"><canvas id="pitch-canvas" width="360" height="40"></canvas></div></div>
       <div class="row"><div class="label">Text</div><div id="text" class="val"></div></div>
       <div class="row"><div class="label">Window</div><div id="window" class="val mono"></div></div>
       <div class="row"><div class="label">FF Index</div><div id="ff" class="val mono"></div></div>
       <div class="row"><div class="label">Latency</div><div id="lat" class="val mono"></div></div>
       <div class="row"><div class="label">RMS</div><div id="rms" class="val mono"></div></div>
       <div class="row"><div class="label">Peak</div><div id="peak" class="val mono"></div></div>
-      <div class="row"><div class="label">Output</div><div id="out" class="val mono"></div></div>
+      <div class="row"><div class="label">Source F0</div><div id="f0src" class="val mono"></div></div>
+      <div class="row"><div class="label">Mic F0</div><div id="f0mic" class="val mono"></div></div>
+      <div class="row"><div class="label">Voiced</div><div id="voiced" class="val mono"></div></div>
       <div class="row" style="gap:12px; margin-top:8px;">
         <button id="play-button" onclick="togglePlay()">Play</button>
         <audio id="player" preload="none"></audio>

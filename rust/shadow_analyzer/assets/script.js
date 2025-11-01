@@ -3,9 +3,94 @@ function setText(id, value) {
   if (el) el.textContent = value ?? '';
 }
 
+function trimLeadingParenGroups(s) {
+  if (!s) return s;
+  var prev;
+  var out = String(s);
+  var re = /^(?:[\(（][^\)）]*[\)）]\s*)+/;
+  do {
+    prev = out;
+    out = out.replace(re, '');
+  } while (out !== prev);
+  return out;
+}
+
+function computeMedianFromSeries(seriesHz) {
+  if (!seriesHz || !seriesHz.length) return null;
+  var vals = seriesHz.filter(function(x){ return typeof x === 'number' && x > 0; }).slice().sort(function(a,b){return a-b;});
+  if (!vals.length) return null;
+  var mid = Math.floor(vals.length / 2);
+  if (vals.length % 2 === 1) return vals[mid];
+  return 0.5 * (vals[mid - 1] + vals[mid]);
+}
+
+function drawPitch(seriesHz, medianHz) {
+  var cv = document.getElementById('pitch-canvas');
+  if (!cv) return;
+  var ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  if (!seriesHz || !seriesHz.length) return;
+  if (!(medianHz > 0)) medianHz = computeMedianFromSeries(seriesHz) || 0;
+  if (!(medianHz > 0)) return;
+
+  // Convert Hz to semitone offsets relative to median (no clamping; we'll autoscale)
+  var st = new Array(seriesHz.length);
+  for (var i = 0; i < seriesHz.length; i++) {
+    var f = seriesHz[i];
+    if (f > 0 && medianHz > 0) {
+      st[i] = 12 * Math.log2(f / medianHz);
+    } else {
+      st[i] = null; // unvoiced
+    }
+  }
+
+  // Optional tiny smoothing (3-point moving average) only on voiced points
+  var st2 = st.slice();
+  for (var i = 1; i + 1 < st.length; i++) {
+    if (st[i - 1] != null && st[i] != null && st[i + 1] != null) {
+      st2[i] = (st[i - 1] + st[i] + st[i + 1]) / 3;
+    }
+  }
+
+  var w = cv.width, h = cv.height;
+  // Determine dynamic Y range from voiced points with a small padding
+  var voicedVals = st2.filter(function(v){ return v != null; });
+  if (!voicedVals.length) return;
+  var minSt = Math.min.apply(null, voicedVals);
+  var maxSt = Math.max.apply(null, voicedVals);
+  var range = maxSt - minSt;
+  if (!(range > 0)) { // nearly flat; expand a bit for visibility
+    minSt -= 0.5; maxSt += 0.5; range = maxSt - minSt;
+  }
+  var pad = range * 0.1;
+  minSt -= pad; maxSt += pad; range = maxSt - minSt;
+
+  ctx.lineWidth = 2.0;
+  ctx.strokeStyle = '#FFF';
+  ctx.beginPath();
+  var started = false;
+  for (var i = 0; i < st2.length; i++) {
+    var yVal = st2[i];
+    var x = (i / Math.max(1, st2.length - 1)) * (w - 1);
+    if (yVal == null) {
+      started = false; // break the stroke on unvoiced gaps
+      continue;
+    }
+    var norm = (yVal - minSt) / (range || 1);
+    var y = (1 - norm) * (h - 1);
+    if (!started) { ctx.moveTo(x, y); started = true; }
+    else { ctx.lineTo(x, y); }
+  }
+  ctx.stroke();
+}
+
 window.addEventListener('analysis', function (e) {
   var d = e.detail || {};
-  if ('text' in d) setText('text', d.text);
+  if ('text' in d) {
+    var tv = (typeof d.text === 'string') ? trimLeadingParenGroups(d.text) : (d.text ?? '');
+    if (!tv && typeof d.text === 'string') tv = d.text; // fallback if trimming emptied unexpectedly
+    setText('text', tv);
+  }
   if ('s' in d && 'e' in d && typeof d.s === 'number' && typeof d.e === 'number') {
     setText('window', d.s.toFixed(3) + '–' + d.e.toFixed(3));
   }
@@ -13,7 +98,16 @@ window.addEventListener('analysis', function (e) {
   if ('latency_ms' in d) setText('lat', (d.latency_ms != null ? d.latency_ms : '') + (d.latency_ms != null ? ' ms' : ''));
   if ('rms' in d && typeof d.rms === 'number') setText('rms', d.rms.toFixed(4));
   if ('peak' in d && typeof d.peak === 'number') setText('peak', d.peak.toFixed(4));
-  if ('out_path' in d) setText('out', d.out_path);
+
+  // F0 numbers
+  if (typeof d.f0_src_median === 'number') setText('f0src', d.f0_src_median.toFixed(1) + ' Hz');
+  if (typeof d.f0_mic_median === 'number') setText('f0mic', d.f0_mic_median.toFixed(1) + ' Hz');
+  if (typeof d.voiced_src === 'number') setText('voiced', Math.round(d.voiced_src * 100) + '%');
+
+  // Pitch graph from source series
+  if (Array.isArray(d.f0_src_series)) {
+    drawPitch(d.f0_src_series, d.f0_src_median);
+  }
 
   // Reset buttons to Play when new analysis/mic update arrives
   var btn = document.getElementById('play-button');
@@ -152,3 +246,13 @@ function togglePlayBoth() {
     ]
   );
 }
+
+
+window.addEventListener('analysis', e => {
+  const d = e.detail||{};
+  console.log('analysis:',
+    'seriesLen=', Array.isArray(d.f0_src_series) ? d.f0_src_series.length : null,
+    'median=', d.f0_src_median,
+    'first10=', (d.f0_src_series||[]).slice(0,10)
+  );
+});

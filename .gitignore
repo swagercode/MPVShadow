@@ -28,3 +28,6 @@ desktop.ini
 mpv/watch_later/
 
 checklist.md
+
+rust/shadow_analyzer/target_build_tmp/
+rust/shadow_analyzer/target_f0/

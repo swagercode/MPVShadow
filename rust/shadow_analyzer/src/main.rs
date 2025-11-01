@@ -20,6 +20,9 @@ use wry::WebViewBuilder;
 use windows::Win32::Media::Audio::{DEVICE_STATE_ACTIVE, EDataFlow, IMMDeviceCollection, IMMDeviceEnumerator};
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED};
 
+mod pitch;
+mod wav;
+
 #[derive(Debug, Clone)]
 struct UiPayload {
     text: Option<String>,
@@ -35,6 +38,14 @@ struct UiPayload {
     latency_ms: u64,
     rms: f32,
     peak: f32,
+    // Optional pitch outputs (Hz and ratios)
+    f0_src_median: Option<f32>,
+    f0_mic_median: Option<f32>,
+    voiced_src: Option<f32>,
+    voiced_mic: Option<f32>,
+    // Optional tiny F0 series (Hz), small, already downsampled
+    f0_src_series: Option<Vec<f32>>,
+    f0_mic_series: Option<Vec<f32>>,
 }
 use std::sync::{Arc, Mutex};
 
@@ -316,6 +327,12 @@ fn spawn_mic_recorder(
                     latency_ms,
                     rms,
                     peak,
+                    f0_src_median: None,
+                    f0_mic_median: None,
+                    voiced_src: None,
+                    voiced_mic: None,
+                    f0_src_series: None,
+                    f0_mic_series: None,
                 };
                 if let Ok(mut guard) = shared.lock() { *guard = Some(payload); }
                 let _ = proxy.send_event(());
@@ -612,9 +629,112 @@ fn run_analyzer(proxy: EventLoopProxy<()>, shared: Arc<Mutex<Option<UiPayload>>>
                                             latency_ms: lat,
                                             rms,
                                             peak,
+                                            f0_src_median: None,
+                                            f0_mic_median: None,
+                                            voiced_src: None,
+                                            voiced_mic: None,
+                                            f0_src_series: None,
+                                            f0_mic_series: None,
                                         };
                                         if let Ok(mut guard) = shared.lock() { *guard = Some(payload); }
                                         let _ = proxy.send_event(());
+
+                                        // Kick off background F0 computation for the source latest clip
+                                        // (prefer latest_path which is the window we just cut)
+                                        let latest_for_f0 = latest_path.to_string_lossy().to_string();
+                                        let proxy2 = proxy.clone();
+                                        let shared2 = Arc::clone(&shared);
+                                        let text2 = text.clone();
+                                        thread::spawn(move || {
+                                            let path = std::path::PathBuf::from(&latest_for_f0);
+                                            let start_f0 = Instant::now();
+                                            let res = wav::read_wav_mono_16bit(&path, Some(24000)).ok()
+                                                .and_then(|(mono, sr)| {
+                                                    let mut cfg = pitch::F0Config::default();
+                                                    cfg.sample_rate_hz = sr as f32;
+                                                    let r = pitch::estimate_f0_mpm(&mono, &cfg);
+                                                    // Energy gate: per-frame RMS and noise floor
+                                                    let rms_vec = frame_rms(&mono, cfg.frame_size, cfg.hop_size);
+                                                    let mut gated = r.f0_hz.clone();
+                                                    if !rms_vec.is_empty() {
+                                                        let mut rms_sorted = rms_vec.clone();
+                                                        rms_sorted.sort_by(|a,b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                                                        let idx = ((rms_sorted.len() as f32) * 0.20).floor() as usize;
+                                                        let idx = idx.min(rms_sorted.len().saturating_sub(1));
+                                                        let noise_floor = rms_sorted[idx];
+                                                        let thresh = noise_floor * 1.6; // ~+4 dB above floor
+                                                        let m = gated.len().min(rms_vec.len());
+                                                        for i in 0..m {
+                                                            if rms_vec[i] < thresh { gated[i] = 0.0; }
+                                                        }
+                                                    }
+                                                    // Bridge tiny unvoiced gaps (<= 2 frames) by linear interpolation
+                                                    let mut bridged = gated;
+                                                    let n = bridged.len();
+                                                    let max_gap = 2usize;
+                                                    let mut i0 = 0usize;
+                                                    while i0 < n {
+                                                        if bridged[i0] > 0.0 { i0 += 1; continue; }
+                                                        let start = i0;
+                                                        while i0 < n && bridged[i0] == 0.0 { i0 += 1; }
+                                                        let end = i0; // exclusive
+                                                        let gap_len = end - start;
+                                                        if gap_len > 0 && gap_len <= max_gap {
+                                                            let prev_opt = if start > 0 && bridged[start - 1] > 0.0 { Some(start - 1) } else { None };
+                                                            let next_opt = if end < n && bridged[end] > 0.0 { Some(end) } else { None };
+                                                            if let (Some(a), Some(b)) = (prev_opt, next_opt) {
+                                                                let a_val = bridged[a];
+                                                                let b_val = bridged[b];
+                                                                for k in 0..gap_len {
+                                                                    let t = (k as f32 + 1.0) / (gap_len as f32 + 1.0);
+                                                                    bridged[start + k] = a_val * (1.0 - t) + b_val * t;
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                    // Compute voiced ratio excluding padded edges (±0.10 s) on bridged series
+                                                    let hop_s = (cfg.hop_size as f32 / cfg.sample_rate_hz).max(1e-6);
+                                                    let margin_frames = ((0.10f32 / hop_s).ceil() as usize).min(bridged.len());
+                                                    let interior_ratio = if bridged.len() > 2 * margin_frames {
+                                                        let slice = &bridged[margin_frames..bridged.len() - margin_frames];
+                                                        let voiced = slice.iter().filter(|x| **x > 0.0).count() as f32;
+                                                        voiced / (slice.len() as f32)
+                                                    } else { r.voiced_ratio };
+                                                    // Downsample series to at most 64 points (for drawing)
+                                                    let series = downsample_series(&bridged, 64);
+                                                    Some((r.median_hz, interior_ratio, series))
+                                                });
+                                            if let Some((median_opt, voiced_ratio, series)) = res {
+                                                eprintln!(
+                                                    "f0: computed in {} ms; src median={:?} Hz voiced={:.0}%",
+                                                    start_f0.elapsed().as_millis(),
+                                                    median_opt,
+                                                    voiced_ratio * 100.0
+                                                );
+                                                let payload2 = UiPayload {
+                                                    text: text2.clone(),
+                                                    s,
+                                                    e,
+                                                    dur,
+                                                    ff_index,
+                                                    out_path: out_path.to_string_lossy().to_string(),
+                                                    latest_path: latest_path.to_string_lossy().to_string(),
+                                                    latest_mic_path: mic_device_sel.as_ref().map(|_| latest_mic_path.to_string_lossy().to_string()),
+                                                    mic_out_path: mic_device_sel.as_ref().map(|_| mic_out_path.to_string_lossy().to_string()),
+                                                    latency_ms: lat,
+                                                    rms,
+                                                    peak,
+                                                    f0_src_median: median_opt,
+                                                    f0_mic_median: None,
+                                                    voiced_src: Some(voiced_ratio),
+                                                    voiced_mic: None,
+                                                    f0_src_series: Some(series),
+                                                    f0_mic_series: None,
+                                                };
+                                                if let Ok(mut g2) = shared2.lock() { *g2 = Some(payload2); }
+                                                let _ = proxy2.send_event(());
+                                            }
+                                        });
                                     }
                                     Ok(Err(msg)) => {
                                         eprintln!("pcm analysis error: {}", msg);
@@ -739,6 +859,12 @@ fn main() {
                             "latency_ms": p.latency_ms,
                             "rms": p.rms,
                             "peak": p.peak,
+                            "f0_src_median": p.f0_src_median,
+                            "f0_mic_median": p.f0_mic_median,
+                            "voiced_src": p.voiced_src,
+                            "voiced_mic": p.voiced_mic,
+                            "f0_src_series": p.f0_src_series,
+                            "f0_mic_series": p.f0_mic_series,
                         })) {
                             let _ = webview.evaluate_script(&format!(
                                 "window.dispatchEvent(new CustomEvent('analysis', {{ detail: {} }}));",
@@ -771,5 +897,37 @@ fn main() {
             _ => {}
         }
     });
+}
+
+// Downsample by picking evenly spaced indices up to max_len
+fn downsample_series(src: &[f32], max_len: usize) -> Vec<f32> {
+    if src.is_empty() || max_len == 0 { return Vec::new(); }
+    if src.len() <= max_len { return src.to_vec(); }
+    let n = src.len();
+    let m = max_len;
+    let mut out = Vec::with_capacity(m);
+    for i in 0..m {
+        let idx = ((i as f32) * ((n - 1) as f32) / ((m - 1) as f32)).round() as usize;
+        out.push(src[idx.min(n - 1)]);
+    }
+    out
+}
+
+// Per-frame RMS with given frame and hop sizes
+fn frame_rms(samples: &[f32], frame_size: usize, hop_size: usize) -> Vec<f32> {
+    if samples.is_empty() || frame_size == 0 { return Vec::new(); }
+    let mut out: Vec<f32> = Vec::new();
+    let mut start = 0usize;
+    while start + frame_size <= samples.len() {
+        let mut sum_sq: f64 = 0.0;
+        for i in 0..frame_size {
+            let v = samples[start + i] as f64;
+            sum_sq += v * v;
+        }
+        let rms = (sum_sq / frame_size as f64).sqrt() as f32;
+        out.push(rms);
+        start = start.saturating_add(hop_size.max(1));
+    }
+    out
 }
 
