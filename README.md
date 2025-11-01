@@ -25,6 +25,8 @@ Status: actively evolving; interfaces and behavior may change.
 - **Persistent webview** (wry/tao + WebView2) with pitch graph, playback controls, and mic selector
 - **Automatic cleanup**: keeps last 5 unique clips per type (source and mic)
 
+<img src="plan.png">
+
 ### Repo layout
 ```
 MPVShadow/
